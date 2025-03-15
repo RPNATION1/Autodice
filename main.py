@@ -27,14 +27,17 @@ CHROMEDRIVER_PATH = os.path.expanduser("~/chrome-for-testing/chromedriver-linux6
 # File paths
 RESUME_DIR = "resumes"
 HISTORY_FILE = "history.json"
+SETTINGS_FILE = "settings.json"
+RESUMES_FILE = "resumes.json"
 COOKIES_FILE_BASE = "dice_cookies.pkl"
 
 # Ensure directories and files exist
 if not os.path.exists(RESUME_DIR):
     os.makedirs(RESUME_DIR)
-if not os.path.exists(HISTORY_FILE):
-    with open(HISTORY_FILE, "w") as f:
-        json.dump({}, f)
+for file in [HISTORY_FILE, SETTINGS_FILE, RESUMES_FILE]:
+    if not os.path.exists(file):
+        with open(file, "w") as f:
+            json.dump({}, f)
 
 # Cookie handling functions
 def load_cookies(driver, username):
@@ -58,16 +61,17 @@ def delete_cookies(username):
         os.remove(cookie_file)
 
 # Main application function
-def apply_to_dice(username, password, keywords, blacklist, resume_file, location, employment_type, cache_path="", wait_s=5):
+def apply_to_dice(username, password, keywords, blacklist, resume_name, location, employment_type, cache_path="", wait_s=5):
     keywords = keywords.split()
     blacklist = blacklist.split() if blacklist else []
     output_log = []
 
-    # Handle resume file
-    if not resume_file:
-        return "Error: Please upload a resume file.", ""
-    resume_path = os.path.join(RESUME_DIR, os.path.basename(resume_file.name))
-    shutil.copy(resume_file.name, resume_path)
+    # Load resumes and validate selection
+    with open(RESUMES_FILE, "r") as f:
+        resumes_data = json.load(f)
+    resume_path = os.path.join(RESUME_DIR, resume_name) if resume_name else None
+    if not resume_path or not os.path.exists(resume_path) or resume_name not in resumes_data:
+        return "Error: Select a valid resume.", ""
 
     # Load history
     with open(HISTORY_FILE, "r") as f:
@@ -75,7 +79,7 @@ def apply_to_dice(username, password, keywords, blacklist, resume_file, location
     user_history = history.get(username, {"all_applied_job_ids": [], "sessions": []})
     all_applied_job_ids = set(user_history["all_applied_job_ids"])
 
-    # Build search URL with additional parameters
+    # Build search URL
     SEARCH_URL_WITHOUT_PAGE = (
         f"https://www.dice.com/jobs?q={' '.join(keywords)}&countryCode=US&radius=30&radiusUnit=mi"
         f"&page=%s&pageSize=100&filters.postedDate=ONE"
@@ -96,7 +100,7 @@ def apply_to_dice(username, password, keywords, blacklist, resume_file, location
     if load_cookies(driver, username):
         driver.get("https://www.dice.com/dashboard")
         try:
-            wait.until(EC.presence_of_element_located((By.ID, "email")))  # If this appears, cookies failed
+            wait.until(EC.presence_of_element_located((By.ID, "email")))
             output_log.append("Cookies invalid, logging in manually.")
         except:
             output_log.append("Logged in with cookies.")
@@ -236,27 +240,126 @@ def view_history(username, session_filter="All"):
     
     return "\n".join(output), "\n".join(session_details)
 
+# Resume management functions
+def load_resumes():
+    with open(RESUMES_FILE, "r") as f:
+        return json.load(f)
+
+def save_resumes(resumes_data):
+    with open(RESUMES_FILE, "w") as f:
+        json.dump(resumes_data, f, indent=2)
+
+def get_resume_list():
+    resumes_data = load_resumes()
+    return list(resumes_data.keys())
+
+def upload_resume(resume_file):
+    if not resume_file:
+        return "No file uploaded.", None
+    resumes_data = load_resumes()
+    original_name = resume_file.name.split('/')[-1]
+    current_name = original_name
+    new_path = os.path.join(RESUME_DIR, current_name)
+    shutil.copy(resume_file.name, new_path)
+    resumes_data[current_name] = {
+        "original_name": original_name,
+        "upload_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "notes": ""
+    }
+    save_resumes(resumes_data)
+    return f"Uploaded: {current_name}", gr.Dataframe(
+        value=[[k, v["original_name"], v["upload_date"], v["notes"]] for k, v in resumes_data.items()],
+        headers=["Current Name", "Original Name", "Upload Date", "Notes"]
+    )
+
+def rename_resume(current_name, new_name):
+    if not current_name or not new_name:
+        return "Error: Select a resume and enter a new name.", None
+    resumes_data = load_resumes()
+    if current_name not in resumes_data:
+        return "Error: Resume not found.", None
+    old_path = os.path.join(RESUME_DIR, current_name)
+    new_path = os.path.join(RESUME_DIR, new_name)
+    if os.path.exists(old_path) and not os.path.exists(new_path):
+        os.rename(old_path, new_path)
+        resumes_data[new_name] = resumes_data.pop(current_name)
+        save_resumes(resumes_data)
+        return f"Renamed {current_name} to {new_name}", gr.Dataframe(
+            value=[[k, v["original_name"], v["upload_date"], v["notes"]] for k, v in resumes_data.items()],
+            headers=["Current Name", "Original Name", "Upload Date", "Notes"]
+        )
+    return "Error: File not found or new name exists.", None
+
+def delete_resume(resume_name):
+    if not resume_name:
+        return "Error: Select a resume to delete.", None
+    resumes_data = load_resumes()
+    if resume_name in resumes_data:
+        resume_path = os.path.join(RESUME_DIR, resume_name)
+        if os.path.exists(resume_path):
+            os.remove(resume_path)
+        del resumes_data[resume_name]
+        save_resumes(resumes_data)
+        return f"Deleted {resume_name}", gr.Dataframe(
+            value=[[k, v["original_name"], v["upload_date"], v["notes"]] for k, v in resumes_data.items()],
+            headers=["Current Name", "Original Name", "Upload Date", "Notes"]
+        )
+    return "Error: Resume not found.", None
+
+def update_resume_notes(resume_name, notes):
+    if not resume_name:
+        return "Error: Select a resume to update.", None
+    resumes_data = load_resumes()
+    if resume_name in resumes_data:
+        resumes_data[resume_name]["notes"] = notes
+        save_resumes(resumes_data)
+        return f"Updated notes for {resume_name}", gr.Dataframe(
+            value=[[k, v["original_name"], v["upload_date"], v["notes"]] for k, v in resumes_data.items()],
+            headers=["Current Name", "Original Name", "Upload Date", "Notes"]
+        )
+    return "Error: Resume not found.", None
+
+# Settings management functions
+def load_settings():
+    with open(SETTINGS_FILE, "r") as f:
+        settings = json.load(f)
+    return settings.get("default_settings", {})
+
+def save_settings(keywords, blacklist, location, employment_type):
+    settings = {
+        "default_settings": {
+            "keywords": keywords,
+            "blacklist": blacklist,
+            "location": location,
+            "employment_type": employment_type
+        }
+    }
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(settings, f, indent=2)
+    return "Settings saved successfully!"
+
 # Gradio Interface
 with gr.Blocks(title="Auto Apply to Dice Jobs") as demo:
     gr.Markdown("# Auto Apply to Dice Jobs 🎯")
-    gr.Markdown("Automate your job applications on Dice.com with advanced features!")
+    gr.Markdown("Automate your Dice.com job applications with advanced resume management!")
 
     with gr.Tabs():
         # Apply Tab
         with gr.TabItem("Apply"):
+            settings = load_settings()
             with gr.Row():
                 with gr.Column():
                     username_input = gr.Textbox(label="Dice Username", value=DEFAULT_USERNAME)
                     password_input = gr.Textbox(label="Dice Password", type="password", value=DEFAULT_PASSWORD)
-                    keywords_input = gr.Textbox(label="Keywords", placeholder="e.g., software engineer python")
-                    blacklist_input = gr.Textbox(label="Blacklist (optional)", placeholder="e.g., senior manager")
-                    location_input = gr.Textbox(label="Location", placeholder="e.g., New York, NY")
+                    keywords_input = gr.Textbox(label="Keywords", value=settings.get("keywords", ""), placeholder="e.g., software engineer python")
+                    blacklist_input = gr.Textbox(label="Blacklist (optional)", value=settings.get("blacklist", ""), placeholder="e.g., senior manager")
+                    location_input = gr.Textbox(label="Location", value=settings.get("location", ""), placeholder="e.g., New York, NY")
                     employment_type = gr.Dropdown(
                         label="Employment Type", 
                         choices=["FULL_TIME", "PART_TIME", "CONTRACTS", "THIRD_PARTY"], 
-                        value="FULL_TIME"
+                        value=settings.get("employment_type", "FULL_TIME")
                     )
-                    resume_input = gr.File(label="Upload Resume (PDF)")
+                    resume_dropdown = gr.Dropdown(label="Select Resume", choices=get_resume_list())
                     cache_input = gr.Textbox(label="Cache Path (optional)", placeholder="e.g., /path/to/cache")
                     wait_input = gr.Slider(1, 10, value=5, label="Wait Time (seconds)")
                     submit_btn = gr.Button("Start Applying")
@@ -267,7 +370,7 @@ with gr.Blocks(title="Auto Apply to Dice Jobs") as demo:
 
             submit_btn.click(
                 fn=apply_to_dice,
-                inputs=[username_input, password_input, keywords_input, blacklist_input, resume_input, 
+                inputs=[username_input, password_input, keywords_input, blacklist_input, resume_dropdown, 
                         location_input, employment_type, cache_input, wait_input],
                 outputs=[output_log, applied_count]
             )
@@ -295,6 +398,55 @@ with gr.Blocks(title="Auto Apply to Dice Jobs") as demo:
                 fn=view_history,
                 inputs=[history_username, session_filter],
                 outputs=[history_output, session_summary]
+            )
+
+        # Resume Naming Tab
+        with gr.TabItem("Resume Management"):
+            with gr.Row():
+                with gr.Column():
+                    resume_upload = gr.File(label="Upload New Resume")
+                    upload_btn = gr.Button("Upload")
+                    resume_list = gr.Dropdown(label="Select Resume", choices=get_resume_list())
+                    new_name_input = gr.Textbox(label="New Resume Name", placeholder="e.g., resume_v2.pdf")
+                    notes_input = gr.Textbox(label="Notes", placeholder="e.g., Tailored for tech roles")
+                    rename_btn = gr.Button("Rename")
+                    update_notes_btn = gr.Button("Update Notes")
+                    delete_btn = gr.Button("Delete")
+                
+                with gr.Column():
+                    resume_status = gr.Textbox(label="Status", interactive=False)
+                    resume_table = gr.Dataframe(
+                        value=[[k, v["original_name"], v["upload_date"], v["notes"]] for k, v in load_resumes().items()],
+                        headers=["Current Name", "Original Name", "Upload Date", "Notes"],
+                        interactive=False
+                    )
+
+            upload_btn.click(fn=upload_resume, inputs=resume_upload, outputs=[resume_status, resume_table])
+            rename_btn.click(fn=rename_resume, inputs=[resume_list, new_name_input], outputs=[resume_status, resume_table])
+            update_notes_btn.click(fn=update_resume_notes, inputs=[resume_list, notes_input], outputs=[resume_status, resume_table])
+            delete_btn.click(fn=delete_resume, inputs=resume_list, outputs=[resume_status, resume_table])
+
+        # Job Apply Settings Tab
+        with gr.TabItem("Job Apply Settings"):
+            with gr.Row():
+                with gr.Column():
+                    settings_keywords = gr.Textbox(label="Default Keywords", value=settings.get("keywords", ""), placeholder="e.g., software engineer python")
+                    settings_blacklist = gr.Textbox(label="Default Blacklist", value=settings.get("blacklist", ""), placeholder="e.g., senior manager")
+                    settings_location = gr.Textbox(label="Default Location", value=settings.get("location", ""), placeholder="e.g., New York, NY")
+                    settings_employment = gr.Dropdown(
+                        label="Default Employment Type", 
+                        choices=["FULL_TIME", "PART_TIME", "CONTRACTS", "THIRD_PARTY"], 
+                        value=settings.get("employment_type", "FULL_TIME")
+                    )
+                    save_settings_btn = gr.Button("Save Settings")
+                
+                with gr.Column():
+                    settings_status = gr.Textbox(label="Status", interactive=False)
+
+            save_settings_btn.click(
+                fn=save_settings,
+                inputs=[settings_keywords, settings_blacklist, settings_location, settings_employment],
+                outputs=settings_status
             )
 
 # Launch on port 1877 with LAN sharing
