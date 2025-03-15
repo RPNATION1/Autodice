@@ -1,0 +1,4 @@
+gradio==4.21.0
+selenium==4.18.1
+webdriver_manager==4.0.1
+python-dotenv==1.0.1
