@@ -31,7 +31,15 @@ Before you start, ensure you have:
 - **Local Network** 🌐: Optional, for LAN sharing (same Wi-Fi/network required).
 
 ---
-
+Auto-Apply-to-Dice-Gradio/
+├── resumes/           # Resume storage 📄
+├── history.json       # Application history 📜
+├── settings.json     # Job apply settings ⚙️
+├── username_dice_cookies.pkl  # Cookies 🍪
+├── .env              # Credentials 🔑
+├── apply_with_gradio.py  # Script 🐍
+├── requirements.txt  # Dependencies 📦
+└── README.md         # Guide 📖
 ## Setup Instructions ⚙️
 
 ### 1. Clone the Repository 📥
