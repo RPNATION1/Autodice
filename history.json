@@ -1,6 +1,6 @@
 {
-  "username": {
-    "all_applied_job_ids": ["id1", "id2"],
+  "user@example.com": {
+    "all_applied_job_ids": ["123"],
     "sessions": [
       {
         "keywords": ["software", "engineer"],
@@ -8,7 +8,7 @@
         "location": "New York, NY",
         "employment_type": "FULL_TIME",
         "applied_jobs": [
-          {"job_id": "id1", "job_title": "Software Engineer", "application_date": "2025-03-15 13:51"}
+          {"job_id": "123", "job_title": "Software Engineer", "application_date": "2025-03-15 13:51"}
         ],
         "start_time": "2025-03-15 13:50"
       }
