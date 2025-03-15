@@ -31,3 +31,5 @@ Before you start, ensure you have the following:
 ```bash
 git clone https://github.com/yourusername/Auto-Apply-to-Dice-Gradio.git
 cd Auto-Apply-to-Dice-Gradio
+
+pip install gradio selenium webdriver_manager python-dotenv
