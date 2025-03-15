@@ -20,7 +20,7 @@ load_dotenv()
 DEFAULT_USERNAME = os.getenv("DICE_USERNAME", "")
 DEFAULT_PASSWORD = os.getenv("DICE_PASSWORD", "")
 
-# Custom Chrome and Chromedriver paths (adjustable via env vars for flexibility)
+# Custom Chrome and Chromedriver paths (configurable via env vars)
 CHROME_BINARY_PATH = os.getenv("CHROME_BINARY_PATH", os.path.expanduser("~/chrome-for-testing/chrome-linux64/chrome"))
 CHROMEDRIVER_PATH = os.getenv("CHROMEDRIVER_PATH", os.path.expanduser("~/chrome-for-testing/chromedriver-linux64/chromedriver"))
 
@@ -65,7 +65,7 @@ def delete_cookies(username):
     if os.path.exists(cookie_file):
         os.remove(cookie_file)
 
-# Main application function
+# Main application function with skip list
 def apply_to_dice(username, password, keywords, blacklist, resume_name, location, employment_type, cache_path="", wait_s=5):
     if not all([username, password, keywords, resume_name, location, employment_type]):
         return "Error: All fields except blacklist and cache path are required.", 0
@@ -73,6 +73,7 @@ def apply_to_dice(username, password, keywords, blacklist, resume_name, location
     keywords = keywords.split()
     blacklist = blacklist.split() if blacklist else []
     output_log = []
+    session_skip_list = []  # Session-specific list of job IDs to skip
     session_data = {
         "keywords": keywords,
         "blacklist": blacklist,
@@ -96,7 +97,7 @@ def apply_to_dice(username, password, keywords, blacklist, resume_name, location
     all_applied_job_ids = set(user_history["all_applied_job_ids"])
 
     # Build search URL
-    search_query = "+".join(keywords)  # Dice uses + for spaces in query
+    search_query = "+".join(keywords)  # Dice expects + for spaces
     SEARCH_URL_WITHOUT_PAGE = (
         f"https://www.dice.com/jobs?q={search_query}&countryCode=US&radius=30&radiusUnit=mi"
         f"&page=%s&pageSize=100&filters.postedDate=ONE"
@@ -154,7 +155,7 @@ def apply_to_dice(username, password, keywords, blacklist, resume_name, location
             try:
                 link = card.find_element(By.CSS_SELECTOR, "a.card-title-link")
                 job_id = link.get_attribute("id")
-                if job_id in all_applied_job_ids:
+                if job_id in all_applied_job_ids or job_id in session_skip_list:
                     continue
                 try:
                     ribbon = card.find_element(By.CSS_SELECTOR, "span.ribbon-inner")
@@ -171,6 +172,10 @@ def apply_to_dice(username, password, keywords, blacklist, resume_name, location
             break
 
         for job_id, job_text, job_url in job_urls:
+            if job_id in session_skip_list:
+                output_log.append(f"Skipping previously failed job: {job_text}")
+                continue
+
             output_log.append(f"Processing: {job_text}")
             job_text_lower = job_text.lower()
             if not all(kw.lower() in job_text_lower for kw in keywords):
@@ -180,8 +185,8 @@ def apply_to_dice(username, password, keywords, blacklist, resume_name, location
                 output_log.append("Skipped: Blacklisted word found.")
                 continue
 
-            driver.get(job_url)
             try:
+                driver.get(job_url)
                 apply_container = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "dhi-wc-apply-button")))
                 wait.until(EC.text_to_be_present_in_element((By.CSS_SELECTOR, "dhi-wc-apply-button"), "Apply Now"))
                 driver.execute_script("arguments[0].shadowRoot.querySelector('button').click();", apply_container)
@@ -200,7 +205,7 @@ def apply_to_dice(username, password, keywords, blacklist, resume_name, location
                 resume_file_input.send_keys(resume_path)
                 apply_now_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button#submit-job-btn")))
                 apply_now_button.click()
-                wait.until(EC.staleness_of(apply_now_button))  # Ensure application submitted
+                wait.until(EC.staleness_of(apply_now_button))  # Confirm submission
                 output_log.append(f"Applied to {job_text}.")
                 all_applied_job_ids.add(job_id)
                 session_data["applied_jobs"].append({
@@ -209,7 +214,9 @@ def apply_to_dice(username, password, keywords, blacklist, resume_name, location
                     "application_date": datetime.now().strftime("%Y-%m-%d %H:%M")
                 })
             except Exception as e:
-                output_log.append(f"Failed to apply to {job_text}: {e}")
+                output_log.append(f"Error applying to {job_text}: {type(e).__name__} - {e}")
+                session_skip_list.append(job_id)  # Add to skip list and move to next job
+                continue  # Load next job
 
     # Update history
     if session_data["applied_jobs"]:
