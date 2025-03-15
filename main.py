@@ -39,13 +39,23 @@ for file in [HISTORY_FILE, SETTINGS_FILE, RESUMES_FILE, RATE_LIMIT_FILE]:
         with open(file, "w") as f:
             json.dump({}, f, indent=2)
 
-# Rate limit settings (default: 60 jobs/hour, 1 resume/min)
+# Rate limit settings with defaults
 def load_rate_limits():
     try:
         with open(RATE_LIMIT_FILE, "r") as f:
-            return json.load(f)
+            limits = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        return {"jobs_per_hour": 60, "resumes_per_minute": 1, "last_job_time": 0, "job_count": 0, "last_resume_time": 0}
+        limits = {}
+    defaults = {
+        "jobs_per_hour": 60,
+        "resumes_per_minute": 1,
+        "last_job_time": 0,
+        "job_count": 0,
+        "last_resume_time": 0
+    }
+    for key, value in defaults.items():
+        limits.setdefault(key, value)
+    return limits
 
 def save_rate_limits(limits):
     with open(RATE_LIMIT_FILE, "w") as f:
@@ -80,7 +90,7 @@ def delete_cookies(username):
         return f"Cookies deleted for {username}"
     return f"No cookies found for {username}"
 
-# Main application function with rate limiting and remote option
+# Main application function
 def apply_to_dice(username, password, keywords, blacklist, resume_name, location, employment_type, prefer_remote, cache_path="", wait_s=5):
     if not all([username, password, keywords, resume_name, employment_type]):
         return "Error: Username, password, keywords, resume, and employment type are required.", 0
@@ -335,7 +345,12 @@ def view_history(username, session_filter="All"):
 def load_resumes():
     try:
         with open(RESUMES_FILE, "r") as f:
-            return json.load(f)
+            data = json.load(f)
+        # Ensure backward compatibility by adding missing keys
+        for resume in data.values():
+            resume.setdefault("size", 0)  # Default size if missing
+            resume.setdefault("last_used", None)  # Default last_used if missing
+        return data
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
@@ -377,7 +392,7 @@ def upload_resume(resume_file):
     rate_limits["last_resume_time"] = current_time
     save_rate_limits(rate_limits)
     return f"Uploaded: {current_name}", gr.Dataframe(
-        value=[[k, v["original_name"], v["upload_date"], v["notes"], v["size"], v["last_used"]] for k, v in resumes_data.items()],
+        value=[[k, v.get("original_name", ""), v.get("upload_date", ""), v.get("notes", ""), v.get("size", 0), v.get("last_used", None)] for k, v in resumes_data.items()],
         headers=["Current Name", "Original Name", "Upload Date", "Notes", "Size (bytes)", "Last Used"],
         interactive=False
     )
@@ -398,7 +413,7 @@ def rename_resume(current_name, new_name):
     resumes_data[new_name] = resumes_data.pop(current_name)
     save_resumes(resumes_data)
     return f"Renamed {current_name} to {new_name}", gr.Dataframe(
-        value=[[k, v["original_name"], v["upload_date"], v["notes"], v["size"], v["last_used"]] for k, v in resumes_data.items()],
+        value=[[k, v.get("original_name", ""), v.get("upload_date", ""), v.get("notes", ""), v.get("size", 0), v.get("last_used", None)] for k, v in resumes_data.items()],
         headers=["Current Name", "Original Name", "Upload Date", "Notes", "Size (bytes)", "Last Used"],
         interactive=False
     )
@@ -415,7 +430,7 @@ def delete_resume(resume_name):
     del resumes_data[resume_name]
     save_resumes(resumes_data)
     return f"Deleted {resume_name}", gr.Dataframe(
-        value=[[k, v["original_name"], v["upload_date"], v["notes"], v["size"], v["last_used"]] for k, v in resumes_data.items()],
+        value=[[k, v.get("original_name", ""), v.get("upload_date", ""), v.get("notes", ""), v.get("size", 0), v.get("last_used", None)] for k, v in resumes_data.items()],
         headers=["Current Name", "Original Name", "Upload Date", "Notes", "Size (bytes)", "Last Used"],
         interactive=False
     )
@@ -429,7 +444,7 @@ def update_resume_notes(resume_name, notes):
     resumes_data[resume_name]["notes"] = notes.strip()
     save_resumes(resumes_data)
     return f"Updated notes for {resume_name}", gr.Dataframe(
-        value=[[k, v["original_name"], v["upload_date"], v["notes"], v["size"], v["last_used"]] for k, v in resumes_data.items()],
+        value=[[k, v.get("original_name", ""), v.get("upload_date", ""), v.get("notes", ""), v.get("size", 0), v.get("last_used", None)] for k, v in resumes_data.items()],
         headers=["Current Name", "Original Name", "Upload Date", "Notes", "Size (bytes)", "Last Used"],
         interactive=False
     )
@@ -557,7 +572,7 @@ with gr.Blocks(title="Auto Apply to Dice Jobs") as demo:
                 with gr.Column():
                     resume_status = gr.Textbox(label="Status", interactive=False)
                     resume_table = gr.Dataframe(
-                        value=[[k, v["original_name"], v["upload_date"], v["notes"], v["size"], v["last_used"]] for k, v in load_resumes().items()],
+                        value=[[k, v.get("original_name", ""), v.get("upload_date", ""), v.get("notes", ""), v.get("size", 0), v.get("last_used", None)] for k, v in load_resumes().items()],
                         headers=["Current Name", "Original Name", "Upload Date", "Notes", "Size (bytes)", "Last Used"],
                         interactive=False
                     )
@@ -565,14 +580,14 @@ with gr.Blocks(title="Auto Apply to Dice Jobs") as demo:
             upload_btn.click(fn=upload_resume, inputs=resume_upload, outputs=[resume_status, resume_table])
             rename_btn.click(fn=rename_resume, inputs=[resume_list, new_name_input], outputs=[resume_status, resume_table])
             update_notes_btn.click(fn=update_resume_notes, inputs=[resume_list, notes_input], outputs=[resume_status, resume_table])
-            delete_btn.click(fn=delete_resume, inputs=resume_list, outputs=[resume_status, resume_table])
+            delete_btn.click(fn=delete_resume, inputs=[resume_list], outputs=[resume_status, resume_table])
 
         # Rate Limits Tab
         with gr.TabItem("Rate Limits"):
             with gr.Row():
                 with gr.Column():
-                    jobs_per_hour_input = gr.Number(label="Max Jobs per Hour", value=load_rate_limits()["jobs_per_hour"], precision=0)
-                    resumes_per_minute_input = gr.Number(label="Max Resumes per Minute", value=load_rate_limits()["resumes_per_minute"], precision=0)
+                    jobs_per_hour_input = gr.Number(label="Max Jobs per Hour", value=load_rate_limits().get("jobs_per_hour", 60), precision=0)
+                    resumes_per_minute_input = gr.Number(label="Max Resumes per Minute", value=load_rate_limits().get("resumes_per_minute", 1), precision=0)
                     save_limits_btn = gr.Button("Save Limits")
 
                 with gr.Column():
@@ -613,8 +628,8 @@ with gr.Blocks(title="Auto Apply to Dice Jobs") as demo:
                     return f"Error saving cookies: {e}"
 
             open_browser_btn.click(fn=open_browser, inputs=[browser_username, load_cookies_flag], outputs=browser_status)
-            save_cookies_btn.click(fn=save_manual_cookies, inputs=browser_username, outputs=browser_status)
-            delete_cookies_btn.click(fn=delete_cookies, inputs=browser_username, outputs=browser_status)
+            save_cookies_btn.click(fn=save_manual_cookies, inputs=[browser_username], outputs=browser_status)
+            delete_cookies_btn.click(fn=delete_cookies, inputs=[browser_username], outputs=browser_status)
 
         # Job Apply Settings Tab
         with gr.TabItem("Job Apply Settings"):
@@ -656,4 +671,4 @@ with gr.Blocks(title="Auto Apply to Dice Jobs") as demo:
                 outputs=[settings_status, settings_keywords, settings_blacklist, settings_location, settings_employment, settings_remote]
             )
 
-demo.launch(server_port=1877, share=True)
+demo.launch(server_name="0.0.0.0", server_port=1877, share=True)
