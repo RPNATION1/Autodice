@@ -1,39 +1,33 @@
-# Auto Apply to Dice Jobs with Gradio 🚀
+# Auto Apply to Dice Jobs 🎉
 
-Welcome to **Auto Apply to Dice Jobs**! This Python project automates job applications on [Dice.com](https://www.dice.com) for "Easy Apply" listings with Selenium and a robust Gradio web interface. Manage resumes with metadata, fine-tune job settings, and track applications—all on your local network! 🎉
-
----
-
-## Features ✨
-
-- **Automated Applications** 🤖: Applies to Dice.com "Easy Apply" jobs seamlessly.
-- **Gradio Web UI** 🌐: Tabs for applying, history, resume management, and job settings.
-- **Resume Management** 📄: Tracks resumes with metadata (name, date, notes) in `resumes.json`.
-- **Cookie Persistence** 🍪: Reuses login sessions via `username_dice_cookies.pkl`.
-- **Detailed History** 📜: Logs sessions with keywords and jobs in `history.json`.
-- **Custom Search** 🔍: Filters by keywords, blacklist, location, and employment type.
-- **Job Settings** ⚙️: Saves defaults in `settings.json`.
-- **LAN Sharing** 🌍: Runs on port `1877` with `share=True`.
+Hey there, job hunter! **Auto Apply to Dice Jobs** is your ticket to automating "Easy Apply" applications on [Dice.com](https://www.dice.com). With a slick Gradio web interface, this Python tool applies to jobs for you, manages your resumes like a pro, and keeps track of everything—all from your browser at `http://127.0.0.1:1877` or your local network. Let’s get you hired faster! 🚀
 
 ---
 
-## How It Works 🛠️
+## What’s Awesome About It? ✨
 
-**Selenium** powers a custom Chrome browser to log into Dice.com, search, and apply. **Gradio** hosts a web interface at `http://127.0.0.1:1877`, shareable on your LAN (e.g., `http://192.168.1.x:1877`). Cookies save login effort, `resumes.json` tracks resume details, and settings/history keep your job hunt organized! 😎
+- **Job Apps on Autopilot** 🤖: Applies to Dice "Easy Apply" jobs with your resume.
+- **Web Dashboard** 🌐: Easy tabs for applying, history, resume tweaks, and settings.
+- **Resume Boss** 📄: Upload, rename, add notes—tracked in `resumes.json`.
+- **Stay Logged In** 🍪: Cookies save your session (no re-logins!).
+- **History Tracker** 📜: Logs every job applied with details in `history.json`.
+- **Search Your Way** 🔍: Keywords, blacklist, location, employment type—your call!
+- **Settings Saver** ⚙️: Default preferences stored in `settings.json`.
+- **LAN Party** 🌍: Share on your network with port `1877`.
 
 ---
 
-## Prerequisites 📋
+## What You Need to Start 🛠️
 
-- **Python 3.7+** 🐍: Check with `python --version`.
-- **Git** 🗂️: To clone the repo.
-- **Local Network** 🌐: Optional, for LAN sharing.
+- **Python 3.7+**: Run `python --version` to check. No Python? [Get it here](https://www.python.org/downloads/).
+- **A Browser**: Chrome’s recommended (we’ll set it up next).
+- **Wi-Fi (Optional)**: For LAN sharing with friends or devices.
 
 ---
 
-## Setup Instructions ⚙️
+## Quick Setup Guide ⚡
 
-### 1. Clone the Repository 📥
+### 1. Grab the Dependencies 📦
+Got Python? Install the goodies with one command:
 ```bash
-git clone https://github.com/yourusername/Auto-Apply-to-Dice-Gradio.git
-cd Auto-Apply-to-Dice-Gradio
+pip install -r requirements.txt
