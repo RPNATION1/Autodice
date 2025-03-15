@@ -1,0 +1,17 @@
+{
+  "username": {
+    "all_applied_job_ids": ["id1", "id2"],
+    "sessions": [
+      {
+        "keywords": ["software", "engineer"],
+        "blacklist": ["senior"],
+        "location": "New York, NY",
+        "employment_type": "FULL_TIME",
+        "applied_jobs": [
+          {"job_id": "id1", "job_title": "Software Engineer", "application_date": "2025-03-15 13:51"}
+        ],
+        "start_time": "2025-03-15 13:50"
+      }
+    ]
+  }
+}
