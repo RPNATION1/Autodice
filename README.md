@@ -1,59 +1,39 @@
 # Auto Apply to Dice Jobs with Gradio 🚀
 
-Welcome to **Auto Apply to Dice Jobs**! This Python project automates job applications on [Dice.com](https://www.dice.com) for "Easy Apply" listings using Selenium and a sleek Gradio web interface. Say goodbye to repetitive clicking and hello to streamlined job hunting! 🎉 With custom Chrome/Chromedriver paths, cookie persistence, and detailed history tracking, this tool is your job search sidekick.
+Welcome to **Auto Apply to Dice Jobs**! This Python project automates job applications on [Dice.com](https://www.dice.com) for "Easy Apply" listings with Selenium and a robust Gradio web interface. Manage resumes with metadata, fine-tune job settings, and track applications—all on your local network! 🎉
 
 ---
 
 ## Features ✨
 
-- **Automated Applications** 🤖: Applies to Dice.com "Easy Apply" jobs with your resume.
-- **Gradio Web UI** 🌐: User-friendly interface with tabs for applying and viewing history.
-- **Resume Storage** 📄: Uploads and saves resumes in a `resumes` folder.
-- **Cookie Persistence** 🍪: Saves login sessions to skip repeated logins.
-- **Detailed History** 📜: Tracks sessions with keywords, locations, and applied jobs in `history.json`.
-- **Custom Search** 🔍: Filter by keywords, blacklist, location, and employment type.
-- **LAN Sharing** 🌍: Runs on port `1877` with `share=True` for local network access.
+- **Automated Applications** 🤖: Applies to Dice.com "Easy Apply" jobs seamlessly.
+- **Gradio Web UI** 🌐: Tabs for applying, history, resume management, and job settings.
+- **Resume Management** 📄: Tracks resumes with metadata (name, date, notes) in `resumes.json`.
+- **Cookie Persistence** 🍪: Reuses login sessions via `username_dice_cookies.pkl`.
+- **Detailed History** 📜: Logs sessions with keywords and jobs in `history.json`.
+- **Custom Search** 🔍: Filters by keywords, blacklist, location, and employment type.
+- **Job Settings** ⚙️: Saves defaults in `settings.json`.
+- **LAN Sharing** 🌍: Runs on port `1877` with `share=True`.
 
 ---
 
 ## How It Works 🛠️
 
-This tool uses **Selenium** with a custom Chrome browser to log into Dice.com, search for jobs based on your criteria, and apply with your resume. **Gradio** powers a web interface accessible at `http://127.0.0.1:1877` or via your local IP on your LAN (e.g., `http://192.168.1.x:1877`). Cookies keep you logged in, and `history.json` logs every session—keywords, applied jobs, and all—making job hunting smarter and faster! 😎
+**Selenium** powers a custom Chrome browser to log into Dice.com, search, and apply. **Gradio** hosts a web interface at `http://127.0.0.1:1877`, shareable on your LAN (e.g., `http://192.168.1.x:1877`). Cookies save login effort, `resumes.json` tracks resume details, and settings/history keep your job hunt organized! 😎
 
 ---
 
 ## Prerequisites 📋
 
-Before you start, ensure you have:
-
-- **Python 3.7+** 🐍: Installed and in your PATH (`python --version` to check).
-- **Git** 🗂️: For cloning the repo.
-- **Local Network** 🌐: Optional, for LAN sharing (same Wi-Fi/network required).
+- **Python 3.7+** 🐍: Check with `python --version`.
+- **Git** 🗂️: To clone the repo.
+- **Local Network** 🌐: Optional, for LAN sharing.
 
 ---
-
-Auto-Apply-to-Dice-Gradio/
-
-├── resumes/           # Resume storage 📄
-
-├── history.json       # Application history 📜
-
-├── settings.json     # Job apply settings ⚙️
-
-├── username_dice_cookies.pkl  # Cookies 🍪
-
-├── .env              # Credentials 🔑
-
-├── apply_with_gradio.py  # Script 🐍
-
-├── requirements.txt  # Dependencies 📦
-
-└── README.md         # Guide 📖
 
 ## Setup Instructions ⚙️
 
 ### 1. Clone the Repository 📥
-Get the code:
 ```bash
 git clone https://github.com/yourusername/Auto-Apply-to-Dice-Gradio.git
 cd Auto-Apply-to-Dice-Gradio
