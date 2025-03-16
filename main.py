@@ -1,7 +1,7 @@
 import json
 import os
 import pickle
-from datetime import datetime, timedelta
+from datetime import datetime
 from itertools import count
 from time import sleep, time
 import gradio as gr
@@ -20,7 +20,7 @@ load_dotenv()
 DEFAULT_USERNAME = os.getenv("DICE_USERNAME", "")
 DEFAULT_PASSWORD = os.getenv("DICE_PASSWORD", "")
 
-# Custom Chrome and Chromedriver paths (configurable via env vars)
+# Custom Chrome and Chromedriver paths
 CHROME_BINARY_PATH = os.getenv("CHROME_BINARY_PATH", os.path.expanduser("~/chrome-for-testing/chrome-linux64/chrome"))
 CHROMEDRIVER_PATH = os.getenv("CHROMEDRIVER_PATH", os.path.expanduser("~/chrome-for-testing/chromedriver-linux64/chromedriver"))
 
@@ -91,7 +91,7 @@ def delete_cookies(username):
     return f"No cookies found for {username}"
 
 # Main application function
-def apply_to_dice(username, password, keywords, blacklist, resume_name, location, employment_type, prefer_remote, cache_path="", wait_s=5):
+def apply_to_dice(username: str, password: str, keywords: str, blacklist: str, resume_name: str, location: str, employment_type: str, prefer_remote: bool, cache_path: str = "", wait_s: int = 5):
     if not all([username, password, keywords, resume_name, employment_type]):
         return "Error: Username, password, keywords, resume, and employment type are required.", 0
 
@@ -112,7 +112,6 @@ def apply_to_dice(username, password, keywords, blacklist, resume_name, location
         "resume_used": resume_name
     }
 
-    # Load and validate resume
     with open(RESUMES_FILE, "r") as f:
         resumes_data = json.load(f)
     resume_path = os.path.join(RESUME_DIR, resume_name)
@@ -121,23 +120,20 @@ def apply_to_dice(username, password, keywords, blacklist, resume_name, location
     resumes_data[resume_name]["last_used"] = datetime.now().strftime("%Y-%m-%d %H:%M")
     save_resumes(resumes_data)
 
-    # Load history and rate limits
     with open(HISTORY_FILE, "r") as f:
         history = json.load(f)
     user_history = history.get(username, {"all_applied_job_ids": [], "sessions": []})
     all_applied_job_ids = set(user_history["all_applied_job_ids"])
     rate_limits = load_rate_limits()
 
-    # Check job rate limit
     current_time = time()
-    if current_time - rate_limits["last_job_time"] < 3600:  # Within last hour
+    if current_time - rate_limits["last_job_time"] < 3600:
         if rate_limits["job_count"] >= rate_limits["jobs_per_hour"]:
             return f"Error: Hourly job application limit reached ({rate_limits['jobs_per_hour']}/hour). Wait and try again.", 0
     else:
-        rate_limits["job_count"] = 0  # Reset if past hour
+        rate_limits["job_count"] = 0
         rate_limits["last_job_time"] = current_time
 
-    # Build search URL with remote filter
     search_query = "+".join(keywords)
     SEARCH_URL_WITHOUT_PAGE = (
         f"https://www.dice.com/jobs?q={search_query}&countryCode=US&radius=30&radiusUnit=mi"
@@ -147,7 +143,6 @@ def apply_to_dice(username, password, keywords, blacklist, resume_name, location
         f"&location={location if location else 'Any'}&language=en"
     )
 
-    # Initialize WebDriver
     options = Options()
     options.binary_location = CHROME_BINARY_PATH
     if cache_path:
@@ -158,7 +153,6 @@ def apply_to_dice(username, password, keywords, blacklist, resume_name, location
         return f"Error: Failed to initialize Chrome driver: {e}", 0
     wait = WebDriverWait(driver, wait_s)
 
-    # Login process
     driver.get("https://www.dice.com")
     if load_cookies(driver, username):
         driver.get("https://www.dice.com/dashboard")
@@ -182,7 +176,6 @@ def apply_to_dice(username, password, keywords, blacklist, resume_name, location
             driver.quit()
             return "\n".join(output_log), 0
 
-    # Job application loop
     for page_number in count(1):
         search_url = SEARCH_URL_WITHOUT_PAGE % page_number
         driver.get(search_url)
@@ -271,7 +264,7 @@ def apply_to_dice(username, password, keywords, blacklist, resume_name, location
                 rate_limits["job_count"] += 1
                 rate_limits["last_job_time"] = time()
                 save_rate_limits(rate_limits)
-                sleep(3600 / rate_limits["jobs_per_hour"])  # Spread applications evenly over an hour
+                sleep(3600 / rate_limits["jobs_per_hour"])
             except Exception as e:
                 error_msg = f"Error applying to {job_title} at {company_name}: {type(e).__name__} - {e}"
                 output_log.append(error_msg)
@@ -298,7 +291,7 @@ def apply_to_dice(username, password, keywords, blacklist, resume_name, location
     return "\n".join(output_log), len(session_data["applied_jobs"])
 
 # History display function
-def view_history(username, session_filter="All"):
+def view_history(username: str, session_filter: str = "All"):
     try:
         with open(HISTORY_FILE, "r") as f:
             history = json.load(f)
@@ -346,10 +339,9 @@ def load_resumes():
     try:
         with open(RESUMES_FILE, "r") as f:
             data = json.load(f)
-        # Ensure backward compatibility by adding missing keys
         for resume in data.values():
-            resume.setdefault("size", 0)  # Default size if missing
-            resume.setdefault("last_used", None)  # Default last_used if missing
+            resume.setdefault("size", 0)
+            resume.setdefault("last_used", None)
         return data
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
@@ -366,7 +358,7 @@ def upload_resume(resume_file):
         return "Error: No file uploaded.", None
     rate_limits = load_rate_limits()
     current_time = time()
-    if current_time - rate_limits["last_resume_time"] < 60:  # 60 seconds = 1 minute
+    if current_time - rate_limits["last_resume_time"] < 60:
         return "Error: Resume upload limit reached (1 per minute). Wait and try again.", None
 
     resumes_data = load_resumes()
@@ -397,7 +389,7 @@ def upload_resume(resume_file):
         interactive=False
     )
 
-def rename_resume(current_name, new_name):
+def rename_resume(current_name: str, new_name: str):
     if not current_name or not new_name:
         return "Error: Both current and new names are required.", None
     resumes_data = load_resumes()
@@ -418,7 +410,7 @@ def rename_resume(current_name, new_name):
         interactive=False
     )
 
-def delete_resume(resume_name):
+def delete_resume(resume_name: str):
     if not resume_name:
         return "Error: No resume selected.", None
     resumes_data = load_resumes()
@@ -435,7 +427,7 @@ def delete_resume(resume_name):
         interactive=False
     )
 
-def update_resume_notes(resume_name, notes):
+def update_resume_notes(resume_name: str, notes: str):
     if not resume_name:
         return "Error: No resume selected.", None
     resumes_data = load_resumes()
@@ -458,7 +450,7 @@ def load_settings():
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
-def save_settings(keywords, blacklist, location, employment_type, prefer_remote):
+def save_settings(keywords: str, blacklist: str, location: str, employment_type: str, prefer_remote: bool):
     settings = {
         "default_settings": {
             "keywords": keywords.strip(),
@@ -479,7 +471,7 @@ def reset_settings():
     return "Settings reset to default.", default_settings
 
 # Browser control function
-def open_browser(username, load_cookies_flag):
+def open_browser(username: str, load_cookies_flag: bool):
     options = Options()
     options.binary_location = CHROME_BINARY_PATH
     try:
@@ -526,7 +518,7 @@ with gr.Blocks(title="Auto Apply to Dice Jobs") as demo:
             def refresh_resumes():
                 return gr.update(choices=get_resume_list())
 
-            resume_dropdown.change(refresh_resumes, outputs=resume_dropdown)
+            resume_dropdown.change(refresh_resumes, outputs=[resume_dropdown])
             submit_btn.click(
                 fn=apply_to_dice,
                 inputs=[username_input, password_input, keywords_input, blacklist_input, resume_dropdown,
@@ -553,14 +545,14 @@ with gr.Blocks(title="Auto Apply to Dice Jobs") as demo:
                 choices = ["All"] + [f"Session {i+1} ({s['start_time']})" for i, s in enumerate(sessions)]
                 return gr.update(choices=choices, value="All")
 
-            history_username.change(update_session_filter, inputs=history_username, outputs=session_filter)
+            history_username.change(update_session_filter, inputs=[history_username], outputs=[session_filter])
             history_btn.click(fn=view_history, inputs=[history_username, session_filter], outputs=[history_output, session_summary])
 
         # Resume Management Tab
         with gr.TabItem("Resume Management"):
             with gr.Row():
                 with gr.Column():
-                    resume_upload = gr.File(label="Upload New Resume", file_types=[".pdf", ".doc", ".docx"])
+                    resume_upload = gr.File(label="Upload New Resume", file_types=[".pdf"])
                     upload_btn = gr.Button("Upload")
                     resume_list = gr.Dropdown(label="Select Resume", choices=get_resume_list(), interactive=True)
                     new_name_input = gr.Textbox(label="New Resume Name", placeholder="e.g., resume_v2.pdf")
@@ -577,7 +569,7 @@ with gr.Blocks(title="Auto Apply to Dice Jobs") as demo:
                         interactive=False
                     )
 
-            upload_btn.click(fn=upload_resume, inputs=resume_upload, outputs=[resume_status, resume_table])
+            upload_btn.click(fn=upload_resume, inputs=[resume_upload], outputs=[resume_status, resume_table])
             rename_btn.click(fn=rename_resume, inputs=[resume_list, new_name_input], outputs=[resume_status, resume_table])
             update_notes_btn.click(fn=update_resume_notes, inputs=[resume_list, notes_input], outputs=[resume_status, resume_table])
             delete_btn.click(fn=delete_resume, inputs=[resume_list], outputs=[resume_status, resume_table])
@@ -593,14 +585,14 @@ with gr.Blocks(title="Auto Apply to Dice Jobs") as demo:
                 with gr.Column():
                     limits_status = gr.Textbox(label="Status", interactive=False)
 
-            def save_limits(jobs_per_hour, resumes_per_minute):
+            def save_limits(jobs_per_hour: int, resumes_per_minute: int):
                 limits = load_rate_limits()
                 limits["jobs_per_hour"] = int(jobs_per_hour)
                 limits["resumes_per_minute"] = int(resumes_per_minute)
                 save_rate_limits(limits)
                 return "Rate limits saved successfully!"
 
-            save_limits_btn.click(fn=save_limits, inputs=[jobs_per_hour_input, resumes_per_minute_input], outputs=limits_status)
+            save_limits_btn.click(fn=save_limits, inputs=[jobs_per_hour_input, resumes_per_minute_input], outputs=[limits_status])
 
         # Browser Control Tab
         with gr.TabItem("Browser Control"):
@@ -615,7 +607,7 @@ with gr.Blocks(title="Auto Apply to Dice Jobs") as demo:
                 with gr.Column():
                     browser_status = gr.Textbox(label="Status", interactive=False)
 
-            def save_manual_cookies(username):
+            def save_manual_cookies(username: str):
                 options = Options()
                 options.binary_location = CHROME_BINARY_PATH
                 try:
@@ -627,9 +619,9 @@ with gr.Blocks(title="Auto Apply to Dice Jobs") as demo:
                 except Exception as e:
                     return f"Error saving cookies: {e}"
 
-            open_browser_btn.click(fn=open_browser, inputs=[browser_username, load_cookies_flag], outputs=browser_status)
-            save_cookies_btn.click(fn=save_manual_cookies, inputs=[browser_username], outputs=browser_status)
-            delete_cookies_btn.click(fn=delete_cookies, inputs=[browser_username], outputs=browser_status)
+            open_browser_btn.click(fn=open_browser, inputs=[browser_username, load_cookies_flag], outputs=[browser_status])
+            save_cookies_btn.click(fn=save_manual_cookies, inputs=[browser_username], outputs=[browser_status])
+            delete_cookies_btn.click(fn=delete_cookies, inputs=[browser_username], outputs=[browser_status])
 
         # Job Apply Settings Tab
         with gr.TabItem("Job Apply Settings"):
@@ -664,7 +656,7 @@ with gr.Blocks(title="Auto Apply to Dice Jobs") as demo:
             save_settings_btn.click(
                 fn=save_settings,
                 inputs=[settings_keywords, settings_blacklist, settings_location, settings_employment, settings_remote],
-                outputs=settings_status
+                outputs=[settings_status]
             )
             reset_settings_btn.click(
                 fn=reset_and_update,
