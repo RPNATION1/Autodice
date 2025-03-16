@@ -11,6 +11,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service  # Added for modern Selenium
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from dotenv import load_dotenv
 import shutil
@@ -143,12 +144,16 @@ def apply_to_dice(username: str, password: str, keywords: str, blacklist: str, r
         f"&location={location if location else 'Any'}&language=en"
     )
 
+    # Set up Chrome options and service
     options = Options()
     options.binary_location = CHROME_BINARY_PATH
     if cache_path:
         options.add_argument(f"user-data-dir={cache_path}")
+    service = Service(executable_path=CHROMEDRIVER_PATH)  # Updated to use Service
+
     try:
-        driver = webdriver.Chrome(executable_path=CHROMEDRIVER_PATH, options=options)
+        driver = webdriver.Chrome(service=service, options=options)  # Updated WebDriver initialization
+        output_log.append("Chrome driver initialized successfully!")
     except Exception as e:
         return f"Error: Failed to initialize Chrome driver: {e}", 0
     wait = WebDriverWait(driver, wait_s)
@@ -474,8 +479,9 @@ def reset_settings():
 def open_browser(username: str, load_cookies_flag: bool):
     options = Options()
     options.binary_location = CHROME_BINARY_PATH
+    service = Service(executable_path=CHROMEDRIVER_PATH)  # Updated to use Service
     try:
-        driver = webdriver.Chrome(executable_path=CHROMEDRIVER_PATH, options=options)
+        driver = webdriver.Chrome(service=service, options=options)  # Updated WebDriver initialization
         driver.get("https://www.dice.com")
         if load_cookies_flag and load_cookies(driver, username):
             driver.get("https://www.dice.com/dashboard")
@@ -610,8 +616,9 @@ with gr.Blocks(title="Auto Apply to Dice Jobs") as demo:
             def save_manual_cookies(username: str):
                 options = Options()
                 options.binary_location = CHROME_BINARY_PATH
+                service = Service(executable_path=CHROMEDRIVER_PATH)  # Updated to use Service
                 try:
-                    driver = webdriver.Chrome(executable_path=CHROMEDRIVER_PATH, options=options)
+                    driver = webdriver.Chrome(service=service, options=options)  # Updated WebDriver initialization
                     driver.get("https://www.dice.com/dashboard")
                     save_cookies(driver, username)
                     driver.quit()
